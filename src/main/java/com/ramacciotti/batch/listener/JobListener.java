@@ -1,6 +1,5 @@
-package com.ramacciotti.batch.config;
+package com.ramacciotti.batch.listener;
 
-import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.JobExecution;
