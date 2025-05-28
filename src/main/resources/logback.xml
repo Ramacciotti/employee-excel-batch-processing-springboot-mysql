@@ -10,7 +10,7 @@
     <include resource="org/springframework/boot/logging/logback/console-appender.xml" />
     <variable resource="application.properties" />
 
-    <root level="DEBUG">
+    <root level="INFO">
         <appender-ref ref="CONSOLE" />
     </root>
 

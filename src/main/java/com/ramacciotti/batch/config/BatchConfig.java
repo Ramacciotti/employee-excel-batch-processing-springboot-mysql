@@ -3,16 +3,18 @@ package com.ramacciotti.batch.config;
 import com.ramacciotti.batch.model.Employee;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.database.BeanPropertyItemSqlParameterSourceProvider;
 import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
+import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
@@ -20,66 +22,97 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
 
+/**
+ * Configuração principal do Spring Batch para processamento de dados em lote.
+ * Define o Job, Step, Reader e Writer usados para ler dados do CSV e salvar no banco.
+ */
 @Configuration
 public class BatchConfig {
 
-    @Qualifier("dataSourceTransactionManager")
     private final PlatformTransactionManager transactionManager;
 
     public BatchConfig(PlatformTransactionManager transactionManager) {
         this.transactionManager = transactionManager;
     }
 
-
     /**
-     * Job representa um processo de lote completo a ser executado.
-     * Ele é composto por um ou mais "Steps" (passos),
-     * Cada passo é uma unidade de trabalho menor que pode incluir tarefas como leitura, processamento e escrita de dados.
-     * O Job coordena a execução desses passos e define a ordem em que eles devem ser executados.
+     * Configura o Job que representa o processo completo de lote.
+     * Um job pode conter múltiplos steps (passos).
+     *
+     * @param jobRepository Gerencia a execução dos Jobs
+     * @param step          Step que será executado pelo job
+     * @param jobListener   Listener para logar início e fim do Job
+     * @return Job configurado
      */
-    @Bean // indica que é um método de configuração Spring
+    @Bean
     public Job job(JobRepository jobRepository, Step step, JobListener jobListener) {
-        // Cria um novo job e o associa ao repositório de Jobs fornecido.
-        return new JobBuilder
-                ("employeeJob", jobRepository)
-                .start(step) // Define o primeiro passo (Step) a ser executado quando o Job for iniciado.
+        return new JobBuilder("employeeJob", jobRepository)
+                .start(step)
                 .listener(jobListener)
-                .incrementer(new RunIdIncrementer()) // Incrementa automaticamente o ID do Job para garantir IDs únicos em cada execução.
-                .build(); // Constrói e retorna o objeto Job configurado.
+                .incrementer(new RunIdIncrementer()) // Garante ID único a cada execução
+                .build();
     }
 
-
     /**
-     * Cada step executa uma tarefa específica, como ler dados de uma fonte, processá-los e gravá-los em uma saída.
+     * Configura o Step que representa uma etapa do Job.
+     * Define chunk (tamanho do lote), reader e writer.
+     *
+     * @param jobRepository Gerencia execução dos steps
+     * @param reader        Leitor de dados (CSV)
+     * @param writer        Escritor de dados (Banco)
+     * @return Step configurado
      */
     @Bean
     public Step step(JobRepository jobRepository, ItemReader<Employee> reader, ItemWriter<Employee> writer) {
-        return new StepBuilder("saveEmployeesToDatabase", jobRepository) // O StepBuilder é usado para construir e configurar um objeto Step.
-                // configura o step para processar os dados em lotes (chunks)
-                .<Employee, Employee>chunk(10, transactionManager) // Isso indica que o step  processará os dados em lotes de 10 itens de uma vez.
-                .reader(reader) // Aqui, estamos definindo o leitor (reader) que será usado para ler os dados de entrada
-                .writer(writer) // Esta linha define o escritor (writer) que será usado para escrever os dados processados.
-                .build(); // Constrói o objeto Step com todas as configurações especificadas anteriormente
+        return new StepBuilder("saveEmployeesToDatabase", jobRepository)
+                .<Employee, Employee>chunk(10, transactionManager) // Processa 10 itens por vez (chunk)
+                .reader(reader)
+                .processor(processor())
+                .writer(writer)
+                .build();
     }
 
+    /**
+     * Define o ItemReader que lê dados de um arquivo CSV.
+     * Usamos @StepScope para que o reader seja gerenciado dentro do escopo do step,
+     * o que permite o controle correto do ciclo de vida, incluindo abertura e fechamento.
+     *
+     * @return ItemReader configurado para ler employees.csv
+     */
     @Bean
-    public ItemReader<Employee> reader() {
+    @StepScope
+    public FlatFileItemReader<Employee> reader() {
         return new FlatFileItemReaderBuilder<Employee>()
-                .name("reader") // Define um nome para o leitor
-                .resource(new ClassPathResource("employees.csv")) // Especifica a localização do arquivo de origem (CSV)
-                .delimited() // Configura o leitor para lidar com um arquivo delimitado (default: campos separados por vírgula)
-                .names("id", "name", "title", "department", "age") // Define os nomes das colunas no arquivo
-                .targetType(Employee.class) // Especifica o tipo de objeto que será lido e convertido a partir das linhas do arquivo
-                .build(); // Constrói e retorna o leitor configurado
+                .name("employeeItemReader")
+                .resource(new ClassPathResource("employees.csv"))
+                .delimited()
+                .names("name", "title", "department", "age")
+                .targetType(Employee.class)
+                .build();
     }
 
+    /**
+     * Define o ItemWriter que grava dados na tabela employee do banco de dados.
+     * Utiliza JdbcBatchItemWriter para inserções batch com parâmetros nomeados.
+     *
+     * @param dataSource DataSource para conexão com banco
+     * @return ItemWriter configurado para inserir no banco
+     */
     @Bean
-    public ItemWriter<Employee> writer(@Qualifier("connectToDatabase") DataSource dataSource) {
+    public ItemWriter<Employee> writer(DataSource dataSource) {
         return new JdbcBatchItemWriterBuilder<Employee>()
                 .dataSource(dataSource)
-                .sql(
-                        "INSERT INTO employee (id, name, title, department, age) values (:id, :name, :title, :department, :age)")
+                .sql("INSERT INTO employee (name, title, department, age) VALUES (:name, :title, :department, :age)")
                 .itemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<>())
                 .build();
     }
+
+    @Bean
+    public ItemProcessor<Employee, Employee> processor() {
+        return employee -> {
+            employee.setId(null);  // garante que id está null para o banco gerar
+            return employee;
+        };
+    }
+
 }
