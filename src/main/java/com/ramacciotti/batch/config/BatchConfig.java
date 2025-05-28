@@ -1,5 +1,6 @@
 package com.ramacciotti.batch.config;
 
+import com.ramacciotti.batch.listener.JobListener;
 import com.ramacciotti.batch.model.Employee;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
