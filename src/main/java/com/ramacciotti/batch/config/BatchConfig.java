@@ -2,6 +2,7 @@ package com.ramacciotti.batch.config;
 
 import com.ramacciotti.batch.listener.JobListener;
 import com.ramacciotti.batch.model.Employee;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.StepScope;
@@ -13,6 +14,7 @@ import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.database.BeanPropertyItemSqlParameterSourceProvider;
+import org.springframework.batch.item.database.JdbcBatchItemWriter;
 import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
@@ -27,6 +29,7 @@ import javax.sql.DataSource;
  * Configuração principal do Spring Batch para processamento de dados em lote.
  * Define o Job, Step, Reader e Writer usados para ler dados do CSV e salvar no banco.
  */
+@Slf4j
 @Configuration
 public class BatchConfig {
 
@@ -101,11 +104,20 @@ public class BatchConfig {
      */
     @Bean
     public ItemWriter<Employee> writer(DataSource dataSource) {
-        return new JdbcBatchItemWriterBuilder<Employee>()
+        // writer que grava no banco
+        JdbcBatchItemWriter<Employee> jdbcWriter = new JdbcBatchItemWriterBuilder<Employee>()
                 .dataSource(dataSource)
                 .sql("INSERT INTO employee (name, title, department, age) VALUES (:name, :title, :department, :age)")
                 .itemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<>())
                 .build();
+        jdbcWriter.afterPropertiesSet();
+
+        return items -> {
+            items.forEach(employee ->
+                    log.info("Saving employee: {}...", employee.getName())
+            );
+            jdbcWriter.write(items);
+        };
     }
 
     @Bean
