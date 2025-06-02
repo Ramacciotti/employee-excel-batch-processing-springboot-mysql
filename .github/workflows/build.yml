@@ -10,7 +10,6 @@ jobs:
   build:
     runs-on: ubuntu-latest  # Define que o job vai rodar numa VM Ubuntu atualizada
     env:
-
       # Variáveis do banco que virão dos Secrets do GitHub
       SPRING_DATASOURCE_URL: ${{ secrets.SPRING_DATASOURCE_URL }}
       SPRING_DATASOURCE_USERNAME: ${{ secrets.SPRING_DATASOURCE_USERNAME }}
@@ -24,8 +23,8 @@ jobs:
       - name: Set up JDK 17  # Passo para configurar o JDK 17 na VM
         uses: actions/setup-java@v3
         with:
-          java-version: '17' # Define a versão do Java que será usada
-          distribution: 'temurin' # Define a distribuição do Java (Temurin é uma distribuição OpenJDK)
+          java-version: '17'  # Define a versão do Java que será usada
+          distribution: 'temurin'  # Define a distribuição do Java (Temurin é uma distribuição OpenJDK)
 
       - name: Build Docker image  # Passo que constrói a imagem Docker da aplicação
         run: docker build -t excel-batch-processing-springboot-mysql:latest .
@@ -37,20 +36,17 @@ jobs:
         run: |
           docker compose up --build -d
 
-      - name: Wait for the application to be ready  # Passo que espera a aplicação subir e testa o endpoint Swagger
+      - name: Wait for batch process to finish  # Passo que aguarda o processo batch finalizar
         run: |
-          echo "Aguardando aplicação iniciar..."
-          for i in {1..60}; do  # Aumentado para 60 tentativas
-            echo "Tentativa $i: testando Swagger..."
-            if curl --fail http://localhost:8080/swagger-ui/index.html; then
-              echo "Aplicação respondeu!"
-              exit 0
-            fi
-            sleep 5
+          echo "Aguardando batch finalizar..."
+          # Aguarda até o container app-1 parar de rodar
+          until [ "$(docker inspect -f '{{.State.Running}}' app-1)" = "false" ]; do
+            sleep 2
           done
-          echo "Erro: Aplicação não respondeu após 60 tentativas"
-          docker compose logs  # Exibe logs para ajudar no diagnóstico
-          exit 1
+          echo "Batch finalizado."
 
-      - name: Stop and remove containers  # Limpa tudo após o teste
-        run: docker compose down -v
+      - name: Show logs  # Exibe os logs de todos os serviços para ajudar na análise
+        run: docker compose logs
+
+      - name: Stop and remove containers  # Limpa tudo após o teste, incluindo volumes
+        run: docker compose down -v || true
