@@ -15,7 +15,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-    command: --default-authentication-plugin=mysql_native_password  # Garante compatibilidade de autenticação
+    command: --default-authentication-plugin=caching_sha2_password  # Garante compatibilidade de autenticação
 
   app:  # Serviço da aplicação Spring Boot
     build: .  # Builda a imagem Docker usando o Dockerfile na raiz do projeto
