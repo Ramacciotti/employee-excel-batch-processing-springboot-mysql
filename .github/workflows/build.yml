@@ -14,6 +14,7 @@ jobs:
       # Variáveis do banco que virão dos Secrets do GitHub
       SPRING_DATASOURCE_USERNAME: ${{ secrets.SPRING_DATASOURCE_USERNAME }}
       SPRING_DATASOURCE_PASSWORD: ${{ secrets.SPRING_DATASOURCE_PASSWORD }}
+      MYSQL_ROOT_PASSWORD: ${{ secrets.SPRING_DATASOURCE_MYSQL_ROOT_PASSWORD }}
 
     steps:
       - name: Checkout repository  # Passo para baixar o código do repositório
@@ -26,7 +27,7 @@ jobs:
           distribution: 'temurin' # Define a distribuição do Java (Temurin é uma distribuição OpenJDK)
 
       - name: Build Docker image  # Passo que constrói a imagem Docker da aplicação
-        run: docker build -t employee-crud:latest .
+        run: docker build -t excel-batch-processing-springboot-mysql:latest .
 
       - name: Start services with docker compose  # Sobe app e banco juntos
         run: |

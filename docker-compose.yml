@@ -7,7 +7,7 @@ services:
       MYSQL_DATABASE: employees  # Nome do banco criado automaticamente
       MYSQL_USER: ${SPRING_DATASOURCE_USERNAME}  # Usuário do banco vindo da variável de ambiente
       MYSQL_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}  # Senha do usuário
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}  # Senha do root (você precisa definir essa variável no .env)
+      MYSQL_ROOT_PASSWORD: ${SPRING_DATASOURCE_MYSQL_ROOT_PASSWORD}  # Senha do root (você precisa definir essa variável no .env)
     ports:
       - "3306:3306"  # Mapeia a porta padrão do MySQL
     volumes:
