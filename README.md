@@ -33,13 +33,27 @@ This project implements batch processing for reading employee data from Excel/CS
 - Java 17 or higher installed
 - Maven 3.6 or higher installed
 - MySQL database configured and running
+- Docker and Docker Compose installed
+- GitHub account
 
 ## How to Run
 
-1) Clone the repository: `git clone <REPOSITORY_URL> && cd excel-batch-processing`
-2) Configure database connection properties in `src/main/resources/application.properties`
-3) Build and run the application using Maven: `mvn clean install && mvn spring-boot:run`
-4) The batch job will automatically run on application startup, reading the employees CSV and persisting data into the database.
+Docker allows you to run the entire application including the database in containers, isolating dependencies and environment setup.
+
+1) Create a .env file in the project root (and add it to .gitignore) with:
+
+```SPRING_DATASOURCE_MYSQL_ROOT_PASSWORD=x```
+```SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/x?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC```
+```SPRING_DATASOURCE_USERNAME=x```
+```SPRING_DATASOURCE_PASSWORD=x```
+
+2) Run Docker Compose to build and start the app and PostgreSQL database:
+
+```docker compose up --build```
+
+3) To stop and clean containers: 
+
+```docker compose down -v```
 
 ## How to Test
 
@@ -52,6 +66,8 @@ Run unit and integration tests along with coverage report generation: `mvn clean
 3) Database credentials set in `application.properties` or `application.yml`.
 4) CSV input file placed under `src/main/resources/` named `employees.csv`.
 5) SQL logging enabled via `spring.jpa.show-sql=true` for troubleshooting.
+6) Dockerfile and Docker Compose files are provided for containerized builds and deployments.
+7) GitHub Actions workflow is configured to build, test, and deploy using Docker Compose.
 
 ## Contributions
 
