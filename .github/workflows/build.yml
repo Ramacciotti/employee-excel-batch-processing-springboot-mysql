@@ -1,26 +1,49 @@
-name: Java CI with Maven
+name: Java CI with Maven and Docker Compose  # Nome do workflow
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]  # Executa no push na branch main
   pull_request:
-    branches:
-      - main
+    branches: [main]  # Executa em PRs para a main
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest  # Define que o job vai rodar numa VM Ubuntu atualizada
+    env:
+
+      # Variáveis do banco que virão dos Secrets do GitHub
+      SPRING_DATASOURCE_USERNAME: ${{ secrets.SPRING_DATASOURCE_USERNAME }}
+      SPRING_DATASOURCE_PASSWORD: ${{ secrets.SPRING_DATASOURCE_PASSWORD }}
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repository  # Passo para baixar o código do repositório
         uses: actions/checkout@v3
 
-      - name: Set up JDK 17
+      - name: Set up JDK 17  # Passo para configurar o JDK 17 na VM
         uses: actions/setup-java@v3
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          java-version: '17' # Define a versão do Java que será usada
+          distribution: 'temurin' # Define a distribuição do Java (Temurin é uma distribuição OpenJDK)
 
-      - name: Build and verify with coverage
-        run: mvn clean verify
+      - name: Build Docker image  # Passo que constrói a imagem Docker da aplicação
+        run: docker build -t employee-crud:latest .
+
+      - name: Start services with docker compose  # Sobe app e banco juntos
+        run: |
+          docker compose up --build -d
+
+      - name: Wait for the application to be ready  # Passo que espera a aplicação subir e testa o endpoint Swagger
+        run: |
+          for i in {1..30}; do
+            echo "Tentativa $i: testando Swagger..."
+            if curl --fail http://localhost:8080/swagger-ui/index.html; then
+              echo "Aplicação respondeu!"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Erro: Aplicação não respondeu após 30 tentativas"
+          exit 1
+
+      - name: Stop and remove containers  # Limpa tudo após o teste
+        run: docker compose down -v
