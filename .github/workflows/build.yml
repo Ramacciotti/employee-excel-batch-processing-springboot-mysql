@@ -35,7 +35,8 @@ jobs:
 
       - name: Wait for the application to be ready  # Passo que espera a aplicação subir e testa o endpoint Swagger
         run: |
-          for i in {1..30}; do
+          echo "Aguardando aplicação iniciar..."
+          for i in {1..60}; do  # Aumentado para 60 tentativas
             echo "Tentativa $i: testando Swagger..."
             if curl --fail http://localhost:8080/swagger-ui/index.html; then
               echo "Aplicação respondeu!"
@@ -43,7 +44,8 @@ jobs:
             fi
             sleep 5
           done
-          echo "Erro: Aplicação não respondeu após 30 tentativas"
+          echo "Erro: Aplicação não respondeu após 60 tentativas"
+          docker compose logs  # Exibe logs para ajudar no diagnóstico
           exit 1
 
       - name: Stop and remove containers  # Limpa tudo após o teste
