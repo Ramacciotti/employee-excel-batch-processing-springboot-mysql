@@ -22,7 +22,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/batch?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC # URL de conexão ao banco
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/batch # URL de conexão ao banco
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
     depends_on:  # Garante que o app só inicie após o banco estar saudável
