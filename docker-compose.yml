@@ -1,0 +1,28 @@
+version: '3.8'  # Versão da sintaxe do docker compose usada
+
+services:
+  db:  # Serviço do banco de dados MySQL
+    image: mysql:8.0  # Usa a imagem oficial do MySQL versão 8.0
+    environment:  # Variáveis de ambiente para configurar o banco
+      MYSQL_DATABASE: employees  # Nome do banco criado automaticamente
+      MYSQL_USER: ${SPRING_DATASOURCE_USERNAME}  # Usuário do banco vindo da variável de ambiente
+      MYSQL_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}  # Senha do usuário
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}  # Senha do root (você precisa definir essa variável no .env)
+    ports:
+      - "3306:3306"  # Mapeia a porta padrão do MySQL
+    volumes:
+      - mysqldata:/var/lib/mysql  # Volume para persistir os dados do banco
+
+  app:  # Serviço da aplicação Spring Boot
+    build: .  # Builda a imagem Docker usando o Dockerfile na raiz do projeto
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+    depends_on:
+      - db
+
+volumes:
+  mysqldata:
