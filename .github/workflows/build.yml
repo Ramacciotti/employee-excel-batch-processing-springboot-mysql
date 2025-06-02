@@ -29,24 +29,54 @@ jobs:
       - name: Build Docker image  # Passo que constrói a imagem Docker da aplicação
         run: docker build -t excel-batch-processing-springboot-mysql:latest .
 
-      - name: Clean Docker volumes (opcional)  # Limpa volume para evitar dados corrompidos
+      - name: Clean Docker volumes (optional) # Limpa volume para evitar dados corrompidos
         run: docker volume rm employee-excel-batch-processing-springboot-mysql_mysqldata || true
 
-      - name: Start services with docker compose  # Sobe app e banco juntos
-        run: |
-          docker compose up --build -d
+      - name: Start services with docker compose # Sobe app e banco juntos
+        run: docker compose up -d --build
 
-      - name: Wait for batch process to finish  # Passo que aguarda o processo batch finalizar
+      - name: Wait for database to be healthy
+        run: |
+          echo "Esperando MySQL ficar saudável..."
+          for i in {1..30}; do
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' $(docker ps -qf "name=db"))
+            if [ "$STATUS" = "healthy" ]; then
+              echo "MySQL está saudável!"
+              exit 0
+            fi
+            echo "Tentativa $i: MySQL ainda não está saudável, esperando 5s..."
+            sleep 5
+          done
+          echo "Erro: MySQL não ficou saudável em 150s"
+          docker compose logs db
+          exit 1
+
+      - name: Wait for batch process to finish
         run: |
           echo "Aguardando batch finalizar..."
-          # Aguarda até o container app-1 parar de rodar
-          until [ "$(docker inspect -f '{{.State.Running}}' app-1)" = "false" ]; do
-            sleep 2
+          # Pega o nome do container do app (service app no docker compose)
+          APP_CONTAINER=$(docker ps --filter "name=app" --format "{{.Names}}")
+          if [ -z "$APP_CONTAINER" ]; then
+            echo "Erro: container do app não encontrado!"
+            docker compose logs
+            exit 1
+          fi
+
+          # Espera o container do app parar (batch finalizou)
+          for i in {1..60}; do
+            RUNNING=$(docker ps -q -f "name=$APP_CONTAINER")
+            if [ -z "$RUNNING" ]; then
+              echo "Batch finalizou!"
+              exit 0
+            fi
+            echo "Tentativa $i: batch ainda rodando, esperando 5s..."
+            sleep 5
           done
-          echo "Batch finalizado."
 
-      - name: Show logs  # Exibe os logs de todos os serviços para ajudar na análise
-        run: docker compose logs
+          echo "Erro: batch não finalizou após 300s"
+          docker logs "$APP_CONTAINER"
+          docker compose logs
+          exit 1
 
-      - name: Stop and remove containers  # Limpa tudo após o teste, incluindo volumes
-        run: docker compose down -v || true
+      - name: Stop and remove containers
+        run: docker compose down -v
